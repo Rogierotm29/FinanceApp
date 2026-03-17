@@ -773,6 +773,31 @@ export default function App() {
   const investmentAccounts = groupedAccounts.inversion;
   const liquidAccounts = groupedAccounts.liquidas;
 
+  const investmentSummary = useMemo(() => {
+  const aporte = investmentMoveHistory
+      .filter((item) => item.type === "aporte")
+      .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+
+    const retiro = investmentMoveHistory
+      .filter((item) => item.type === "retiro")
+      .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+
+    const rendimiento = investmentMoveHistory
+      .filter((item) => item.type === "rendimiento")
+      .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+
+    const minusvalia = investmentMoveHistory
+      .filter((item) => item.type === "minusvalia")
+      .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+
+    return {
+      aporte,
+      retiro,
+      rendimiento,
+      minusvalia,
+      neto: rendimiento - minusvalia,
+    };
+  }, [investmentMoveHistory]);
   const addAccount = () => {
     if (!newAccount.name || newAccount.balance === "") return;
 
@@ -1250,6 +1275,27 @@ export default function App() {
       );
     }
 
+    if (investmentMoveForm.type === "minusvalia") {
+        if (amount > (Number(investmentAccount.balance) || 0)) {
+          setStatusMessage("La minusvalía no puede ser mayor al valor actual de la inversión.");
+          return;
+        }
+
+        setAccounts((prev) =>
+          prev.map((item) => {
+            if (item.id === investmentAccount.id) {
+              return {
+                ...item,
+                balance: Math.max((Number(item.balance) || 0) - amount, 0),
+                profit: (Number(item.profit) || 0) - amount,
+              };
+            }
+
+            return item;
+          })
+        );
+      }
+
     setInvestmentMoveHistory((prev) => [
       {
         id: crypto.randomUUID(),
@@ -1470,6 +1516,16 @@ export default function App() {
                 (Number(account.profit) || 0) - Number(move.amount || 0),
                 0
               ),
+            };
+          }
+        }
+
+        if (move.type === "minusvalia") {
+          if (account.id === move.investmentAccountId) {
+            return {
+              ...account,
+              balance: (Number(account.balance) || 0) + Number(move.amount || 0),
+              profit: (Number(account.profit) || 0) + Number(move.amount || 0),
             };
           }
         }
@@ -3073,7 +3129,71 @@ export default function App() {
               </TabsContent>
 
               <TabsContent value="inversion-cuentas">
-                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                      <Card className="rounded-3xl border-0 shadow-md">
+                        <CardContent className="p-5">
+                          <p className="text-sm text-slate-500">Aportado</p>
+                          <p className="mt-1 text-2xl font-bold">
+                            {currency.format(investmentSummary.aporte)}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-3xl border-0 shadow-md">
+                        <CardContent className="p-5">
+                          <p className="text-sm text-slate-500">Retirado</p>
+                          <p className="mt-1 text-2xl font-bold">
+                            {currency.format(investmentSummary.retiro)}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-3xl border-0 shadow-md">
+                        <CardContent className="p-5">
+                          <p className="text-sm text-slate-500">Rendimiento</p>
+                          <p className="mt-1 text-2xl font-bold text-emerald-600">
+                            {currency.format(investmentSummary.rendimiento)}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-3xl border-0 shadow-md">
+                        <CardContent className="p-5">
+                          <p className="text-sm text-slate-500">Minusvalía</p>
+                          <p className="mt-1 text-2xl font-bold text-rose-600">
+                            {currency.format(investmentSummary.minusvalia)}
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="rounded-3xl border-0 shadow-md">
+                        <CardContent className="p-5">
+                          <p className="text-sm text-slate-500">Neto</p>
+                            <p
+                              className={`mt-1 text-2xl font-bold ${
+                                investmentSummary.neto > 0
+                                  ? "text-emerald-600"
+                                  : investmentSummary.neto < 0
+                                  ? "text-rose-600"
+                                  : "text-slate-900"
+                              }`}
+                            >
+                              {currency.format(investmentSummary.neto)}
+                            </p>
+
+                            <p className="mt-1 text-xs text-slate-500">
+                              {investmentSummary.neto > 0
+                                ? "Vas con ganancia neta"
+                                : investmentSummary.neto < 0
+                                ? "Vas con pérdida neta"
+                                : "Sin cambio neto"}
+                            </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="grid gap-4 xl:grid-cols-2">
                   <SectionCard
                     title="Inversiones"
                     description="Tus cuentas de inversión como GBM."
@@ -3174,11 +3294,12 @@ export default function App() {
                             <SelectItem value="aporte">Aporte</SelectItem>
                             <SelectItem value="retiro">Retiro / venta</SelectItem>
                             <SelectItem value="rendimiento">Rendimiento</SelectItem>
+                            <SelectItem value="minusvalia">Minusvalía / pérdida</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
-                      {investmentMoveForm.type !== "rendimiento" ? (
+                      {investmentMoveForm.type === "aporte" || investmentMoveForm.type === "retiro" ? (
                         <div className="space-y-2">
                           <Label>Cuenta líquida relacionada</Label>
                           <Select
@@ -3205,10 +3326,30 @@ export default function App() {
                       ) : null}
 
                       <div className="space-y-2">
-                        <Label>Monto</Label>
+                        <Label>
+                          {investmentMoveForm.type === "aporte"
+                            ? "Monto del aporte"
+                            : investmentMoveForm.type === "retiro"
+                            ? "Monto del retiro"
+                            : investmentMoveForm.type === "rendimiento"
+                            ? "Monto del rendimiento"
+                            : investmentMoveForm.type === "minusvalia"
+                            ? "Monto de la pérdida"
+                            : "Monto"}
+                        </Label>
                         <Input
                           type="number"
-                          placeholder="1000"
+                          placeholder={
+                            investmentMoveForm.type === "aporte"
+                              ? "1000"
+                              : investmentMoveForm.type === "retiro"
+                              ? "1500"
+                              : investmentMoveForm.type === "rendimiento"
+                              ? "350"
+                              : investmentMoveForm.type === "minusvalia"
+                              ? "500"
+                              : "1000"
+                          }
                           value={investmentMoveForm.amount}
                           onChange={(e) =>
                             setInvestmentMoveForm((prev) => ({
@@ -3220,9 +3361,29 @@ export default function App() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Concepto</Label>
+                        <Label>
+                          {investmentMoveForm.type === "aporte"
+                            ? "Concepto del aporte"
+                            : investmentMoveForm.type === "retiro"
+                            ? "Concepto del retiro"
+                            : investmentMoveForm.type === "rendimiento"
+                            ? "Concepto del rendimiento"
+                            : investmentMoveForm.type === "minusvalia"
+                            ? "Concepto de la pérdida"
+                            : "Concepto"}
+                        </Label>
                         <Input
-                          placeholder="Ej. Aporte semanal, venta parcial, rendimiento"
+                          placeholder={
+                            investmentMoveForm.type === "aporte"
+                              ? "Ej. Aporte semanal a GBM"
+                              : investmentMoveForm.type === "retiro"
+                              ? "Ej. Venta parcial o retiro"
+                              : investmentMoveForm.type === "rendimiento"
+                              ? "Ej. Ganancia del periodo"
+                              : investmentMoveForm.type === "minusvalia"
+                              ? "Ej. Baja de mercado"
+                              : "Ej. Movimiento de inversión"
+                          }
                           value={investmentMoveForm.concept}
                           onChange={(e) =>
                             setInvestmentMoveForm((prev) => ({
@@ -3247,9 +3408,17 @@ export default function App() {
                         />
                       </div>
 
-                      <Button className="w-full" onClick={handleInvestmentMove}>
-                        Guardar movimiento
-                      </Button>
+                        <Button className="w-full" onClick={handleInvestmentMove}>
+                          {investmentMoveForm.type === "aporte"
+                            ? "Registrar aporte"
+                            : investmentMoveForm.type === "retiro"
+                            ? "Registrar retiro"
+                            : investmentMoveForm.type === "rendimiento"
+                            ? "Registrar rendimiento"
+                            : investmentMoveForm.type === "minusvalia"
+                            ? "Registrar pérdida"
+                            : "Guardar movimiento"}
+                        </Button>
                     </div>
                   </SectionCard>
                   <SectionCard
@@ -3269,9 +3438,33 @@ export default function App() {
                             className="flex items-center justify-between rounded-2xl border p-4"
                           >
                             <div>
-                              <p className="font-medium">
-                                {item.investmentAccountName} · {item.type}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{item.investmentAccountName}</p>
+
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                                    item.type === "aporte"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : item.type === "retiro"
+                                      ? "bg-amber-100 text-amber-700"
+                                      : item.type === "rendimiento"
+                                      ? "bg-cyan-100 text-cyan-700"
+                                      : item.type === "minusvalia"
+                                      ? "bg-rose-100 text-rose-700"
+                                      : "bg-slate-100 text-slate-700"
+                                  }`}
+                                >
+                                  {item.type === "aporte"
+                                    ? "Aporte"
+                                    : item.type === "retiro"
+                                    ? "Retiro / venta"
+                                    : item.type === "rendimiento"
+                                    ? "Rendimiento"
+                                    : item.type === "minusvalia"
+                                    ? "Minusvalía / pérdida"
+                                    : item.type}
+                                </span>
+                              </div>
                               <p className="text-sm text-slate-500">
                                 {item.concept} · {item.date}
                                 {item.liquidAccountName
@@ -3306,6 +3499,7 @@ export default function App() {
                       )}
                     </div>
                   </SectionCard>
+                </div>
                 </div>
               </TabsContent>
             </Tabs>
