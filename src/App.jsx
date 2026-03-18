@@ -571,6 +571,9 @@ export default function App() {
 
   const [editMode, setEditMode] = useState(false);
 
+  const [isAppUnlocked, setIsAppUnlocked] = useState(false);
+  const [accessPin, setAccessPin] = useState("");
+  const [savedPin, setSavedPin] = useState("");
   const [confirmDelete, setConfirmDelete] = useState({
     open: false,
     type: "",
@@ -578,13 +581,15 @@ export default function App() {
     title: "",
     description: "",
   });
-
   const [statusMessage, setStatusMessage] = useState("");
   const importRef = useRef(null);
 
   useEffect(() => {
     setMounted(true);
 
+    const localPin = localStorage.getItem("finance-app-pin") || "";
+    setSavedPin(localPin);
+    setIsAppUnlocked(!localPin);
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
@@ -1658,6 +1663,50 @@ export default function App() {
     }
   };
 
+  const handleSavePin = () => {
+  const cleanPin = accessPin.trim();
+
+  if (!/^\d{4,6}$/.test(cleanPin)) {
+    setStatusMessage("El PIN debe tener entre 4 y 6 números.");
+    return;
+  }
+
+  localStorage.setItem("finance-app-pin", cleanPin);
+  setSavedPin(cleanPin);
+  setIsAppUnlocked(true);
+  setAccessPin("");
+  setStatusMessage("PIN guardado correctamente.");
+};
+const handleUnlockApp = () => {
+  const cleanPin = accessPin.trim();
+
+  if (!savedPin) {
+    setIsAppUnlocked(true);
+    return;
+  }
+
+  if (cleanPin !== savedPin) {
+    setStatusMessage("PIN incorrecto.");
+    return;
+  }
+
+  setIsAppUnlocked(true);
+  setAccessPin("");
+  setStatusMessage("App desbloqueada.");
+};
+const handleLockApp = () => {
+  setIsAppUnlocked(false);
+  setAccessPin("");
+  setStatusMessage("App bloqueada.");
+};
+
+const handleRemovePin = () => {
+  localStorage.removeItem("finance-app-pin");
+  setSavedPin("");
+  setAccessPin("");
+  setIsAppUnlocked(true);
+  setStatusMessage("PIN eliminado.");
+};
   if (!mounted) {
     return (
       <div className="p-6 text-sm text-slate-500">
@@ -1665,6 +1714,40 @@ export default function App() {
       </div>
     );
   }
+
+if (!isAppUnlocked) {
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="mx-auto max-w-md">
+        <Card className="rounded-3xl border-0 shadow-lg">
+          <CardHeader>
+            <CardTitle>Acceso protegido</CardTitle>
+            <CardDescription>
+              Ingresa tu PIN para entrar a tu información financiera.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>PIN</Label>
+              <Input
+                type="password"
+                inputMode="numeric"
+                placeholder="••••"
+                value={accessPin}
+                onChange={(e) => setAccessPin(e.target.value)}
+              />
+            </div>
+
+            <Button className="w-full" onClick={handleUnlockApp}>
+              Desbloquear app
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
 
   if (step < 4) {
     return (
@@ -1958,6 +2041,13 @@ export default function App() {
                     onClick={() => setEditMode(true)}
                   >
                     <PencilLine className="mr-2 h-4 w-4" /> Editar perfil
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="rounded-2x1"
+                    onClick={handleLockApp}
+                    >
+                      Bloquear app
                   </Button>
                   <Button
                     variant="secondary"
@@ -3823,6 +3913,43 @@ export default function App() {
           </TabsContent>
 
           <TabsContent value="perfil">
+            <SectionCard
+              title="Seguridad de acceso"
+              description="Protege tu app con un PIN local de 4 a 6 dígitos."
+              icon={AlertCircle}
+            >
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>{savedPin ? "Cambiar PIN" : "Crear PIN"}</Label>
+                  <Input
+                    type="password"
+                    inputMode="numeric"
+                    placeholder="Ej. 1234"
+                    value={accessPin}
+                    onChange={(e) => setAccessPin(e.target.value)}
+                  />
+                </div>
+
+                <Button onClick={handleSavePin}>
+                  {savedPin ? "Guardar nuevo PIN" : "Guardar PIN"}
+                </Button>
+                {savedPin ? (
+                <Button variant="outline" onClick={handleRemovePin}>
+                  Quitar PIN
+                </Button>
+              ) : null}
+
+                {savedPin ? (
+                  <p className="text-xs text-slate-500">
+                    Ya tienes un PIN configurado. Si guardas uno nuevo, reemplazará el actual.
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Este PIN se guarda localmente en este dispositivo.
+                  </p>
+                )}
+              </div>
+            </SectionCard>
             <div className="grid gap-4 xl:grid-cols-2">
               <SectionCard
                 title="Tu configuración"
