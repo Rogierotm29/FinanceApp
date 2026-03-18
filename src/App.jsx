@@ -68,308 +68,71 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const STORAGE_KEY = "money-manager-vite-pro-v2";
+import {
+  clamp,
+  monthToWeekly,
+  getBudgetPlan,
+  applyExpenseToAccount,
+  revertExpenseFromAccount,
+  getAccountTotals,
+  getHealthSnapshot,
+} from "@/lib/finance";
 
-const currency = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-  maximumFractionDigits: 0,
-});
+import {
+  STORAGE_KEY,
+  accountTypes,
+  expenseCategories,
+  LIQUID_ACCOUNT_TYPES,
+  INVESTMENT_ACCOUNT_TYPES,
+  CREDIT_ACCOUNT_TYPES,
+  chartColors,
+  defaultProfile,
+} from "@/lib/constants";
 
-const defaultProfile = {
-  name: "",
-  monthlyIncome: 0,
-  fixedExpenses: 0,
-  savingsGoal: 0,
-  emergencyFundMonths: 3,
-  investmentRate: 15,
-  method: "50/30/20",
-};
+import {
+  getLocalDateString,
+  normalizeAccount,
+  normalizeLoadedData,
+} from "@/lib/storage";
 
-const accountTypes = ["Debito", "Credito", "Ahorro", "Inversion", "Efectivo"];
+import StatCard from "@/components/dashboard/StatCard";
 
-const expenseCategories = [
-  "Renta",
-  "Comida",
-  "Transporte",
-  "Salud",
-  "Luz",
-  "Agua",
-  "Gas",
-  "Internet",
-  "Telefono",
-  "Suscripciones",
-  "Educacion",
-  "Entretenimiento",
-  "Deuda",
-  "Ahorro",
-  "Mantenimiento",
-  "Otro",
-];
+import InvestmentSummaryCards from "@/components/investments/InvestmentSummaryCards";
 
-const LIQUID_ACCOUNT_TYPES = ["Debito", "Ahorro", "Efectivo"];
-const INVESTMENT_ACCOUNT_TYPES = ["Inversion"];
-const CREDIT_ACCOUNT_TYPES = ["Credito"];
+import LockScreen from "@/components/security/LockScreen";
 
-const chartColors = [
-  "#0f172a",
-  "#334155",
-  "#475569",
-  "#64748b",
-  "#94a3b8",
-  "#cbd5e1",
-];
+import SectionCard from "@/components/common/SectionCard";
 
-function getLocalDateString() {
-  const today = new Date();
-  const offset = today.getTimezoneOffset();
-  const localDate = new Date(today.getTime() - offset * 60000);
-  return localDate.toISOString().slice(0, 10);
-}
+import AccountBadge from "@/components/accounts/AccountBadge";
+import {
+  getAccountValueLabel,
+  getAccountPlaceholder,
+  getAccountHelpText,
+} from "@/lib/account-ui";
 
-function clamp(value, min, max) {
-  return Math.min(Math.max(Number(value) || 0, min), max);
-}
+import { currency, getInvestmentTypeLabel } from "@/lib/formatters";
 
-function monthToWeekly(monthly) {
-  return monthly / 4.33;
-}
+import ConfirmDeleteDialog from "@/components/common/ConfirmDeleteDialog";
 
-function getBudgetPlan(income, fixed, rate, method) {
-  const safeIncome = Number(income) || 0;
-  const safeFixed = Number(fixed) || 0;
-  const investRate = clamp(rate, 0, 100);
+import {
+  applyInvestmentMoveToAccounts,
+  revertInvestmentMoveInAccounts,
+} from "@/lib/investments";
 
-  if (method === "Personalizado") {
-    const investment = safeIncome * (investRate / 100);
-    const essentials = Math.max(safeFixed, safeIncome * 0.45);
-    const lifestyle = Math.max(safeIncome - essentials - investment, 0);
-    return { essentials, lifestyle, investment };
-  }
+import {
+  applyCardPaymentToAccounts,
+  revertCardPaymentInAccounts,
+  applyCreditLimitUpdate,
+  revertCreditLimitUpdate,
+} from "@/lib/credit";
 
-  const essentials = Math.max(safeFixed, safeIncome * 0.5);
-  const investment = Math.max(safeIncome * 0.2, safeIncome * (investRate / 100));
-  const adjustedLifestyle = Math.max(safeIncome - essentials - investment, 0);
+import {
+  applyLiquidDepositToAccounts,
+  revertLiquidDepositInAccounts,
+  applyLiquidTransferToAccounts,
+  revertLiquidTransferInAccounts,
+} from "@/lib/liquid-accounts";
 
-  return {
-    essentials,
-    lifestyle: adjustedLifestyle,
-    investment,
-  };
-}
-
-function normalizeAccount(account) {
-  return {
-    id: account?.id || crypto.randomUUID(),
-    name: account?.name || "",
-    type: account?.type || "Debito",
-    balance: Number(account?.balance) || 0,
-    creditLimit: Number(account?.creditLimit) || 0,
-    cutoffDay: Number(account?.cutoffDay) || 0,
-    dueDay: Number(account?.dueDay) || 0,
-    monthlyContribution: Number(account?.monthlyContribution) || 0,
-    profit: Number(account?.profit) || 0,
-  };
-}
-
-function normalizeLoadedData(data) {
-  return {
-    profile: { ...defaultProfile, ...(data?.profile || {}) },
-    accounts: Array.isArray(data?.accounts)
-      ? data.accounts.map(normalizeAccount)
-      : [],
-    expenses: Array.isArray(data?.expenses)
-      ? data.expenses.map((expense) => ({
-          id: expense?.id || crypto.randomUUID(),
-          concept: expense?.concept || "",
-          category: expense?.category || "Otro",
-          amount: Number(expense?.amount) || 0,
-          accountId: expense?.accountId || "",
-          accountName: expense?.accountName || "",
-          date: expense?.date || getLocalDateString(),
-        }))
-      : [],
-    goals:
-      Array.isArray(data?.goals) && data.goals.length
-        ? data.goals.map((goal) => ({
-            id: goal?.id || crypto.randomUUID(),
-            name: goal?.name || "Meta",
-            amount: Number(goal?.amount) || 0,
-          }))
-        : [
-            {
-              id: crypto.randomUUID(),
-              name: "Fondo de emergencia",
-              amount: 0,
-            },
-            {
-              id: crypto.randomUUID(),
-              name: "Inversión",
-              amount: 0,
-            },
-          ],
-    cardPaymentsHistory: Array.isArray(data?.cardPaymentsHistory)
-      ? data.cardPaymentsHistory
-      : [],
-    creditLimitHistory: Array.isArray(data?.creditLimitHistory)
-      ? data.creditLimitHistory
-      : [],
-    liquidDepositHistory: Array.isArray(data?.liquidDepositHistory)
-      ? data.liquidDepositHistory
-      : [],
-    liquidTransferHistory: Array.isArray(data?.liquidTransferHistory)
-      ? data.liquidTransferHistory
-      : [],
-    investmentMoveHistory: Array.isArray(data?.investmentMoveHistory)
-      ? data.investmentMoveHistory
-      : [],
-  };
-}
-
-function getAccountTotals(accounts) {
-  return accounts.reduce(
-    (acc, account) => {
-      const balance = Number(account.balance) || 0;
-      const creditLimit = Number(account.creditLimit) || 0;
-      const monthlyContribution = Number(account.monthlyContribution) || 0;
-      const profit = Number(account.profit) || 0;
-
-      if (LIQUID_ACCOUNT_TYPES.includes(account.type)) {
-        acc.liquid += balance;
-      }
-
-      if (INVESTMENT_ACCOUNT_TYPES.includes(account.type)) {
-        acc.investment += balance;
-        acc.investmentProfit += profit;
-        acc.configuredInvestment += monthlyContribution;
-      }
-
-      if (CREDIT_ACCOUNT_TYPES.includes(account.type)) {
-        acc.creditDebt += balance;
-        acc.creditLimit += creditLimit;
-      }
-
-      return acc;
-    },
-    {
-      liquid: 0,
-      investment: 0,
-      creditDebt: 0,
-      creditLimit: 0,
-      investmentProfit: 0,
-      configuredInvestment: 0,
-    }
-  );
-}
-
-function getAccountValueLabel(type) {
-  if (type === "Credito") return "Deuda actual";
-  if (type === "Inversion") return "Valor actual";
-  return "Saldo";
-}
-
-function getAccountPlaceholder(type) {
-  if (type === "Credito") return "4500";
-  if (type === "Inversion") return "18000";
-  return "12000";
-}
-
-function getAccountHelpText(type) {
-  if (type === "Credito") {
-    return "Guarda lo que debes actualmente, no el dinero disponible de la tarjeta.";
-  }
-
-  if (type === "Inversion") {
-    return "Ideal para GBM u otra plataforma. Pon el valor actual de tu portafolio.";
-  }
-
-  return "Aquí va el dinero que sí tienes disponible o apartado.";
-}
-
-function applyExpenseToAccount(account, amount) {
-  if (!account) return account;
-  const numericAmount = Number(amount) || 0;
-
-  if (account.type === "Credito") {
-    return {
-      ...account,
-      balance: (Number(account.balance) || 0) + numericAmount,
-    };
-  }
-
-  return {
-    ...account,
-    balance: Math.max((Number(account.balance) || 0) - numericAmount, 0),
-  };
-}
-
-function revertExpenseFromAccount(account, amount) {
-  if (!account) return account;
-  const numericAmount = Number(amount) || 0;
-
-  if (account.type === "Credito") {
-    return {
-      ...account,
-      balance: Math.max((Number(account.balance) || 0) - numericAmount, 0),
-    };
-  }
-
-  return {
-    ...account,
-    balance: (Number(account.balance) || 0) + numericAmount,
-  };
-}
-
-function getHealthSnapshot({
-  emergencyProgress,
-  creditUsage,
-  availableThisMonth,
-  configuredInvestment,
-  targetInvestment,
-}) {
-  const emergencyScore = Math.min(emergencyProgress, 100) * 0.35;
-  const creditScore = Math.max(0, 100 - Math.min(creditUsage, 100)) * 0.25;
-  const cashflowScore = availableThisMonth >= 0 ? 20 : 5;
-  const investRatio =
-    targetInvestment > 0
-      ? Math.min((configuredInvestment / targetInvestment) * 100, 100)
-      : 100;
-  const investScore = investRatio * 0.2;
-
-  const score = Math.round(
-    emergencyScore + creditScore + cashflowScore + investScore
-  );
-
-  let status = "Estable";
-  if (score >= 80) status = "Muy buena";
-  else if (score >= 65) status = "Buena";
-  else if (score >= 45) status = "En mejora";
-  else status = "Atención";
-
-  const messages = [];
-
-  if (emergencyProgress < 100) {
-    messages.push("Prioriza crecer tu fondo de emergencia.");
-  } else {
-    messages.push("Tu fondo de emergencia va por buen camino.");
-  }
-
-  if (creditUsage > 30) {
-    messages.push("Baja el uso de tus tarjetas para respirar más tranquilo.");
-  } else {
-    messages.push("Tu uso de crédito está controlado.");
-  }
-
-  if (configuredInvestment < targetInvestment) {
-    messages.push(
-      "Tu aportación invertida mensual puede acercarse más a tu objetivo."
-    );
-  } else {
-    messages.push("Tu ritmo de inversión está alineado con tu meta mensual.");
-  }
-
-  return { score, status, messages };
-}
 
 function getDemoData() {
   return normalizeLoadedData({
@@ -450,50 +213,9 @@ function getDemoData() {
   });
 }
 
-function SectionCard({ title, description, icon, children, right }) {
-  const Icon = icon;
-  return (
-    <Card className="rounded-3xl border-0 shadow-md">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-lg">{title}</CardTitle>
-            {description ? (
-              <CardDescription className="mt-1">{description}</CardDescription>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2">
-            {right}
-            <div className="rounded-2xl bg-slate-100 p-3">
-              <Icon className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
 
-function AccountBadge({ type }) {
-  const styles = {
-    Debito: "bg-emerald-100 text-emerald-700",
-    Ahorro: "bg-cyan-100 text-cyan-700",
-    Efectivo: "bg-amber-100 text-amber-700",
-    Credito: "bg-rose-100 text-rose-700",
-    Inversion: "bg-violet-100 text-violet-700",
-  };
 
-  return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-        styles[type] || "bg-slate-100 text-slate-700"
-      }`}
-    >
-      {type}
-    </span>
-  );
-}
+
 
 export default function App() {
   const [mounted, setMounted] = useState(false);
@@ -593,7 +315,7 @@ export default function App() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        const empty = normalizeLoadedData({});
+        const empty = normalizeLoadedData({}, defaultProfile);
         setGoals(empty.goals);
         setCardPaymentsHistory(empty.cardPaymentsHistory);
         setCreditLimitHistory(empty.creditLimitHistory);
@@ -604,7 +326,7 @@ export default function App() {
       }
 
       const parsed = JSON.parse(raw);
-      const normalized = normalizeLoadedData(parsed);
+      const normalized = normalizeLoadedData(parsed, defaultProfile);
 
       setProfile(normalized.profile);
       setAccounts(normalized.accounts);
@@ -621,7 +343,7 @@ export default function App() {
       }
     } catch (error) {
       console.error(error);
-      const empty = normalizeLoadedData({});
+      const empty = normalizeLoadedData({}, defaultProfile);
       setGoals(empty.goals);
       setCardPaymentsHistory(empty.cardPaymentsHistory);
       setCreditLimitHistory(empty.creditLimitHistory);
@@ -935,31 +657,12 @@ export default function App() {
     }
 
     setAccounts((prev) =>
-      prev.map((account) => {
-        if (account.id === cardPayment.creditAccountId) {
-          return {
-            ...account,
-            balance: Math.max(
-              (Number(account.balance) || 0) - paymentAmount,
-              0
-            ),
-          };
-        }
-
-        if (account.id === cardPayment.sourceAccountId) {
-          return {
-            ...account,
-            balance: Math.max(
-              (Number(account.balance) || 0) - paymentAmount,
-              0
-            ),
-          };
-        }
-
-        return account;
+      applyCardPaymentToAccounts(prev, {
+        creditAccountId: cardPayment.creditAccountId,
+        sourceAccountId: cardPayment.sourceAccountId,
+        amount: paymentAmount,
       })
     );
-
     setCardPaymentsHistory((prev) => [
       {
         id: crypto.randomUUID(),
@@ -1003,13 +706,11 @@ export default function App() {
     }
 
     setAccounts((prev) =>
-      prev.map((account) =>
-        account.id === creditLimitForm.creditAccountId
-          ? { ...account, creditLimit: newLimit }
-          : account
-      )
+      applyCreditLimitUpdate(prev, {
+        creditAccountId: creditLimitForm.creditAccountId,
+        newLimit,
+      })
     );
-
     setCreditLimitHistory((prev) => [
       {
         id: crypto.randomUUID(),
@@ -1053,13 +754,11 @@ export default function App() {
     }
 
     setAccounts((prev) =>
-      prev.map((item) =>
-        item.id === liquidDepositForm.accountId
-          ? { ...item, balance: (Number(item.balance) || 0) + depositAmount }
-          : item
-      )
+      applyLiquidDepositToAccounts(prev, {
+        accountId: liquidDepositForm.accountId,
+        amount: depositAmount,
+      })
     );
-
     setLiquidDepositHistory((prev) => [
       {
         id: crypto.randomUUID(),
@@ -1128,22 +827,10 @@ export default function App() {
     }
 
     setAccounts((prev) =>
-      prev.map((item) => {
-        if (item.id === source.id) {
-          return {
-            ...item,
-            balance: Math.max((Number(item.balance) || 0) - transferAmount, 0),
-          };
-        }
-
-        if (item.id === destination.id) {
-          return {
-            ...item,
-            balance: (Number(item.balance) || 0) + transferAmount,
-          };
-        }
-
-        return item;
+      applyLiquidTransferToAccounts(prev, {
+        sourceAccountId: source.id,
+        destinationAccountId: destination.id,
+        amount: transferAmount,
       })
     );
 
@@ -1209,97 +896,14 @@ export default function App() {
       return;
     }
 
-    if (investmentMoveForm.type === "aporte") {
-      if (amount > (Number(liquidAccount.balance) || 0)) {
-        setStatusMessage("No tienes suficiente saldo para aportar a inversión.");
-        return;
-      }
-
-      setAccounts((prev) =>
-        prev.map((item) => {
-          if (item.id === investmentAccount.id) {
-            return {
-              ...item,
-              balance: (Number(item.balance) || 0) + amount,
-              monthlyContribution: (Number(item.monthlyContribution) || 0) + amount,
-            };
-          }
-
-          if (item.id === liquidAccount.id) {
-            return {
-              ...item,
-              balance: Math.max((Number(item.balance) || 0) - amount, 0),
-            };
-          }
-
-          return item;
-        })
-      );
-    }
-
-    if (investmentMoveForm.type === "retiro") {
-      if (amount > (Number(investmentAccount.balance) || 0)) {
-        setStatusMessage("No puedes retirar más de lo que tienes invertido.");
-        return;
-      }
-
-      setAccounts((prev) =>
-        prev.map((item) => {
-          if (item.id === investmentAccount.id) {
-            return {
-              ...item,
-              balance: Math.max((Number(item.balance) || 0) - amount, 0),
-            };
-          }
-
-          if (item.id === liquidAccount.id) {
-            return {
-              ...item,
-              balance: (Number(item.balance) || 0) + amount,
-            };
-          }
-
-          return item;
-        })
-      );
-    }
-
-    if (investmentMoveForm.type === "rendimiento") {
-      setAccounts((prev) =>
-        prev.map((item) => {
-          if (item.id === investmentAccount.id) {
-            return {
-              ...item,
-              balance: (Number(item.balance) || 0) + amount,
-              profit: (Number(item.profit) || 0) + amount,
-            };
-          }
-
-          return item;
-        })
-      );
-    }
-
-    if (investmentMoveForm.type === "minusvalia") {
-        if (amount > (Number(investmentAccount.balance) || 0)) {
-          setStatusMessage("La minusvalía no puede ser mayor al valor actual de la inversión.");
-          return;
-        }
-
-        setAccounts((prev) =>
-          prev.map((item) => {
-            if (item.id === investmentAccount.id) {
-              return {
-                ...item,
-                balance: Math.max((Number(item.balance) || 0) - amount, 0),
-                profit: (Number(item.profit) || 0) - amount,
-              };
-            }
-
-            return item;
-          })
-        );
-      }
+    setAccounts((prev) =>
+      applyInvestmentMoveToAccounts(prev, {
+        investmentAccountId: investmentAccount.id,
+        liquidAccountId: liquidAccount?.id || "",
+        type: investmentMoveForm.type,
+        amount,
+      })
+    );
 
     setInvestmentMoveHistory((prev) => [
       {
@@ -1359,27 +963,7 @@ export default function App() {
     const paymentToRemove = cardPaymentsHistory.find((payment) => payment.id === id);
     if (!paymentToRemove) return;
 
-    setAccounts((prev) =>
-      prev.map((account) => {
-        if (account.id === paymentToRemove.creditAccountId) {
-          return {
-            ...account,
-            balance:
-              (Number(account.balance) || 0) + Number(paymentToRemove.amount || 0),
-          };
-        }
-
-        if (account.id === paymentToRemove.sourceAccountId) {
-          return {
-            ...account,
-            balance:
-              (Number(account.balance) || 0) + Number(paymentToRemove.amount || 0),
-          };
-        }
-
-        return account;
-      })
-    );
+    setAccounts((prev) => revertCardPaymentInAccounts(prev, paymentToRemove));
 
     setCardPaymentsHistory((prev) =>
       prev.filter((payment) => payment.id !== id)
@@ -1392,13 +976,7 @@ export default function App() {
     const limitChange = creditLimitHistory.find((item) => item.id === id);
     if (!limitChange) return;
 
-    setAccounts((prev) =>
-      prev.map((account) =>
-        account.id === limitChange.creditAccountId
-          ? { ...account, creditLimit: Number(limitChange.oldLimit) || 0 }
-          : account
-      )
-    );
+    setAccounts((prev) => revertCreditLimitUpdate(prev, limitChange));
 
     setCreditLimitHistory((prev) => prev.filter((item) => item.id !== id));
     setStatusMessage("Cambio de línea eliminado.");
@@ -1408,19 +986,7 @@ export default function App() {
     const deposit = liquidDepositHistory.find((item) => item.id === id);
     if (!deposit) return;
 
-    setAccounts((prev) =>
-      prev.map((account) =>
-        account.id === deposit.accountId
-          ? {
-              ...account,
-              balance: Math.max(
-                (Number(account.balance) || 0) - Number(deposit.amount || 0),
-                0
-              ),
-            }
-          : account
-      )
-    );
+    setAccounts((prev) => revertLiquidDepositInAccounts(prev, deposit));
 
     setLiquidDepositHistory((prev) => prev.filter((item) => item.id !== id));
     setStatusMessage("Depósito eliminado y saldo revertido.");
@@ -1430,29 +996,7 @@ export default function App() {
     const transfer = liquidTransferHistory.find((item) => item.id === id);
     if (!transfer) return;
 
-    setAccounts((prev) =>
-      prev.map((account) => {
-        if (account.id === transfer.sourceAccountId) {
-          return {
-            ...account,
-            balance:
-              (Number(account.balance) || 0) + Number(transfer.amount || 0),
-          };
-        }
-
-        if (account.id === transfer.destinationAccountId) {
-          return {
-            ...account,
-            balance: Math.max(
-              (Number(account.balance) || 0) - Number(transfer.amount || 0),
-              0
-            ),
-          };
-        }
-
-        return account;
-      })
-    );
+    setAccounts((prev) => revertLiquidTransferInAccounts(prev, transfer));
 
     setLiquidTransferHistory((prev) => prev.filter((item) => item.id !== id));
     setStatusMessage("Transferencia eliminada y saldos revertidos.");
@@ -1462,82 +1006,7 @@ export default function App() {
     const move = investmentMoveHistory.find((item) => item.id === id);
     if (!move) return;
 
-    setAccounts((prev) =>
-      prev.map((account) => {
-        if (move.type === "aporte") {
-          if (account.id === move.investmentAccountId) {
-            return {
-              ...account,
-              balance: Math.max(
-                (Number(account.balance) || 0) - Number(move.amount || 0),
-                0
-              ),
-              monthlyContribution: Math.max(
-                (Number(account.monthlyContribution) || 0) -
-                  Number(move.amount || 0),
-                0
-              ),
-            };
-          }
-
-          if (account.id === move.liquidAccountId) {
-            return {
-              ...account,
-              balance:
-                (Number(account.balance) || 0) + Number(move.amount || 0),
-            };
-          }
-        }
-
-        if (move.type === "retiro") {
-          if (account.id === move.investmentAccountId) {
-            return {
-              ...account,
-              balance:
-                (Number(account.balance) || 0) + Number(move.amount || 0),
-            };
-          }
-
-          if (account.id === move.liquidAccountId) {
-            return {
-              ...account,
-              balance: Math.max(
-                (Number(account.balance) || 0) - Number(move.amount || 0),
-                0
-              ),
-            };
-          }
-        }
-
-        if (move.type === "rendimiento") {
-          if (account.id === move.investmentAccountId) {
-            return {
-              ...account,
-              balance: Math.max(
-                (Number(account.balance) || 0) - Number(move.amount || 0),
-                0
-              ),
-              profit: Math.max(
-                (Number(account.profit) || 0) - Number(move.amount || 0),
-                0
-              ),
-            };
-          }
-        }
-
-        if (move.type === "minusvalia") {
-          if (account.id === move.investmentAccountId) {
-            return {
-              ...account,
-              balance: (Number(account.balance) || 0) + Number(move.amount || 0),
-              profit: (Number(account.profit) || 0) + Number(move.amount || 0),
-            };
-          }
-        }
-
-        return account;
-      })
-    );
+    setAccounts((prev) => revertInvestmentMoveInAccounts(prev, move));
 
     setInvestmentMoveHistory((prev) => prev.filter((item) => item.id !== id));
     setStatusMessage("Movimiento de inversión eliminado y saldos revertidos.");
@@ -1579,7 +1048,7 @@ export default function App() {
   };
 
   const resetAll = () => {
-    const empty = normalizeLoadedData({});
+    const empty = normalizeLoadedData({}, defaultProfile);
     setProfile(defaultProfile);
     setAccounts([]);
     setExpenses([]);
@@ -1642,7 +1111,7 @@ export default function App() {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const normalized = normalizeLoadedData(parsed);
+      const normalized = normalizeLoadedData(parsed, defaultProfile);
 
       setProfile(normalized.profile);
       setAccounts(normalized.accounts);
@@ -1717,35 +1186,11 @@ const handleRemovePin = () => {
 
 if (!isAppUnlocked) {
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="mx-auto max-w-md">
-        <Card className="rounded-3xl border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle>Acceso protegido</CardTitle>
-            <CardDescription>
-              Ingresa tu PIN para entrar a tu información financiera.
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>PIN</Label>
-              <Input
-                type="password"
-                inputMode="numeric"
-                placeholder="••••"
-                value={accessPin}
-                onChange={(e) => setAccessPin(e.target.value)}
-              />
-            </div>
-
-            <Button className="w-full" onClick={handleUnlockApp}>
-              Desbloquear app
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <LockScreen
+      accessPin={accessPin}
+      setAccessPin={setAccessPin}
+      handleUnlockApp={handleUnlockApp}
+    />
   );
 }
 
@@ -2131,91 +1576,43 @@ if (!isAppUnlocked) {
           </div>
         ) : null}
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-          <Card className="rounded-3xl border-0 shadow-md xl:col-span-1">
-            <CardContent className="flex items-center justify-between p-5">
-              <div>
-                <p className="text-sm text-slate-500">Liquidez</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {currency.format(totals.liquid)}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-100 p-3">
-                <Wallet className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+              <StatCard
+                title="Liquidez"
+                value={currency.format(totals.liquid)}
+                icon={Wallet}
+              />
 
-          <Card className="rounded-3xl border-0 shadow-md xl:col-span-1">
-            <CardContent className="flex items-center justify-between p-5">
-              <div>
-                <p className="text-sm text-slate-500">Invertido</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {currency.format(totals.investment)}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-100 p-3">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
+              <StatCard
+                title="Invertido"
+                value={currency.format(totals.investment)}
+                icon={TrendingUp}
+              />
 
-          <Card className="rounded-3xl border-0 shadow-md xl:col-span-1">
-            <CardContent className="flex items-center justify-between p-5">
-              <div>
-                <p className="text-sm text-slate-500">Rendimiento</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {currency.format(totals.investmentProfit)}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-100 p-3">
-                <PiggyBank className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
+              <StatCard
+                title="Rendimiento"
+                value={currency.format(totals.investmentProfit)}
+                icon={PiggyBank}
+              />
 
-          <Card className="rounded-3xl border-0 shadow-md xl:col-span-1">
-            <CardContent className="flex items-center justify-between p-5">
-              <div>
-                <p className="text-sm text-slate-500">Deuda TC</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {currency.format(totals.creditDebt)}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-100 p-3">
-                <CreditCard className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
+              <StatCard
+                title="Deuda TC"
+                value={currency.format(totals.creditDebt)}
+                icon={CreditCard}
+              />
 
-          <Card className="rounded-3xl border-0 shadow-md xl:col-span-1">
-            <CardContent className="flex items-center justify-between p-5">
-              <div>
-                <p className="text-sm text-slate-500">Disponible mes</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {currency.format(availableThisMonth)}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-100 p-3">
-                <BadgeDollarSign className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
+              <StatCard
+                title="Disponible mes"
+                value={currency.format(availableThisMonth)}
+                icon={BadgeDollarSign}
+              />
 
-          <Card className="rounded-3xl border-0 shadow-md xl:col-span-1">
-            <CardContent className="flex items-center justify-between p-5">
-              <div>
-                <p className="text-sm text-slate-500">Metas</p>
-                <p className="mt-1 text-2xl font-bold">
-                  {currency.format(totalGoals)}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-100 p-3">
-                <Target className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <StatCard
+                title="Metas"
+                value={currency.format(totalGoals)}
+                icon={Target}
+              />
+            </div>
         <div className="grid gap-4 xl:grid-cols-3">
           <SectionCard
             title="Plan sugerido"
@@ -3220,68 +2617,10 @@ if (!isAppUnlocked) {
 
               <TabsContent value="inversion-cuentas">
                   <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                      <Card className="rounded-3xl border-0 shadow-md">
-                        <CardContent className="p-5">
-                          <p className="text-sm text-slate-500">Aportado</p>
-                          <p className="mt-1 text-2xl font-bold">
-                            {currency.format(investmentSummary.aporte)}
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="rounded-3xl border-0 shadow-md">
-                        <CardContent className="p-5">
-                          <p className="text-sm text-slate-500">Retirado</p>
-                          <p className="mt-1 text-2xl font-bold">
-                            {currency.format(investmentSummary.retiro)}
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="rounded-3xl border-0 shadow-md">
-                        <CardContent className="p-5">
-                          <p className="text-sm text-slate-500">Rendimiento</p>
-                          <p className="mt-1 text-2xl font-bold text-emerald-600">
-                            {currency.format(investmentSummary.rendimiento)}
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="rounded-3xl border-0 shadow-md">
-                        <CardContent className="p-5">
-                          <p className="text-sm text-slate-500">Minusvalía</p>
-                          <p className="mt-1 text-2xl font-bold text-rose-600">
-                            {currency.format(investmentSummary.minusvalia)}
-                          </p>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="rounded-3xl border-0 shadow-md">
-                        <CardContent className="p-5">
-                          <p className="text-sm text-slate-500">Neto</p>
-                            <p
-                              className={`mt-1 text-2xl font-bold ${
-                                investmentSummary.neto > 0
-                                  ? "text-emerald-600"
-                                  : investmentSummary.neto < 0
-                                  ? "text-rose-600"
-                                  : "text-slate-900"
-                              }`}
-                            >
-                              {currency.format(investmentSummary.neto)}
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-500">
-                              {investmentSummary.neto > 0
-                                ? "Vas con ganancia neta"
-                                : investmentSummary.neto < 0
-                                ? "Vas con pérdida neta"
-                                : "Sin cambio neto"}
-                            </p>
-                        </CardContent>
-                      </Card>
-                    </div>
+                    <InvestmentSummaryCards
+                      investmentSummary={investmentSummary}
+                      currency={currency}
+                    />
 
                     <div className="grid gap-4 xl:grid-cols-2">
                   <SectionCard
@@ -3544,15 +2883,7 @@ if (!isAppUnlocked) {
                                       : "bg-slate-100 text-slate-700"
                                   }`}
                                 >
-                                  {item.type === "aporte"
-                                    ? "Aporte"
-                                    : item.type === "retiro"
-                                    ? "Retiro / venta"
-                                    : item.type === "rendimiento"
-                                    ? "Rendimiento"
-                                    : item.type === "minusvalia"
-                                    ? "Minusvalía / pérdida"
-                                    : item.type}
+                                    {getInvestmentTypeLabel(item.type)}
                                 </span>
                               </div>
                               <p className="text-sm text-slate-500">
@@ -4110,49 +3441,18 @@ if (!isAppUnlocked) {
           </TabsContent>
         </Tabs>
 
-        <Dialog
-          open={confirmDelete.open}
-          onOpenChange={(open) =>
-            setConfirmDelete((prev) => ({
-              ...prev,
-              open,
-            }))
-          }
-        >
-          <DialogContent className="sm:max-w-md rounded-3xl">
-            <DialogHeader>
-              <DialogTitle>
-                {confirmDelete.title || "Confirmar eliminación"}
-              </DialogTitle>
-            </DialogHeader>
-
-            <p className="text-sm text-slate-600">
-              {confirmDelete.description ||
-                "Esta acción no se puede deshacer fácilmente."}
-            </p>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() =>
-                  setConfirmDelete({
-                    open: false,
-                    type: "",
-                    id: "",
-                    title: "",
-                    description: "",
-                  })
-                }
-              >
-                Cancelar
-              </Button>
-
-              <Button variant="destructive" onClick={handleConfirmDelete}>
-                Sí, eliminar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+          <ConfirmDeleteDialog
+            open={confirmDelete.open}
+            onOpenChange={(open) =>
+              setConfirmDelete((prev) => ({
+                ...prev,
+                open,
+              }))
+            }
+            title={confirmDelete.title}
+            description={confirmDelete.description}
+            onConfirm={handleConfirmDelete}
+          />
 
         <Dialog open={editMode} onOpenChange={setEditMode}>
           <DialogContent className="sm:max-w-2xl rounded-3xl">
