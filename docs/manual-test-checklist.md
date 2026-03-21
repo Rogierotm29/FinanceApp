@@ -1,18 +1,18 @@
 # Manual Test Checklist — App Finanzas
 
 ## 1. Onboarding inicial
-- [ ] La app carga sin pantalla en blanco
-- [ ] El onboarding aparece si no hay perfil cargado
-- [ ] Se puede avanzar entre pasos
-- [ ] Se puede regresar entre pasos
-- [ ] Al terminar, entra al tablero principal
-- [ ] Los datos del onboarding se guardan correctamente
+- [yes] La app carga sin pantalla en blanco
+- [yes] El onboarding aparece si no hay perfil cargado
+- [yes] Se puede avanzar entre pasos
+- [yes] Se puede regresar entre pasos
+- [yes] Al terminar, entra al tablero principal
+- [yees] Los datos del onboarding se guardan correctamente
 
 ---
 
 ## 2. Dashboard
-- [ ] Se muestran las 6 tarjetas KPI
-- [ ] Liquidez muestra el valor correcto
+- [yes] Se muestran las 6 tarjetas KPI
+- [yes] Liquidez muestra el valor correcto
 - [ ] Invertido muestra el valor correcto
 - [ ] Rendimiento muestra el valor correcto
 - [ ] Deuda TC muestra el valor correcto
