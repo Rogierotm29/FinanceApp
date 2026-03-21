@@ -135,6 +135,7 @@ export default function CuentasTab() {
                 <Label>{getAccountValueLabel(newAccount.type)}</Label>
                 <Input
                   type="number"
+                  min="0"
                   placeholder={getAccountPlaceholder(newAccount.type)}
                   value={newAccount.balance}
                   onChange={(e) =>
@@ -155,6 +156,7 @@ export default function CuentasTab() {
                     <Label>Límite</Label>
                     <Input
                       type="number"
+                      min="0"
                       placeholder="18000"
                       value={newAccount.creditLimit}
                       onChange={(e) =>
@@ -268,6 +270,7 @@ export default function CuentasTab() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          aria-label={`Eliminar cuenta ${account.name}`}
                           onClick={() =>
                             openDeleteConfirm(
                               "account",
@@ -351,6 +354,7 @@ export default function CuentasTab() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        aria-label={`Eliminar cuenta ${account.name}`}
                         onClick={() =>
                           openDeleteConfirm(
                             "account",
@@ -403,6 +407,7 @@ export default function CuentasTab() {
                 <Label>Monto</Label>
                 <Input
                   type="number"
+                  min="0"
                   placeholder="5000"
                   value={liquidDepositForm.amount}
                   onChange={(e) =>
@@ -506,6 +511,7 @@ export default function CuentasTab() {
                 <Label>Monto</Label>
                 <Input
                   type="number"
+                  min="0"
                   placeholder="1500"
                   value={liquidTransferForm.amount}
                   onChange={(e) =>
@@ -581,6 +587,7 @@ export default function CuentasTab() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        aria-label={`Eliminar depósito ${item.concept}`}
                         onClick={() =>
                           openDeleteConfirm(
                             "deposit",
@@ -633,6 +640,7 @@ export default function CuentasTab() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        aria-label={`Eliminar transferencia ${item.concept}`}
                         onClick={() =>
                           openDeleteConfirm(
                             "transfer",
@@ -711,6 +719,7 @@ export default function CuentasTab() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          aria-label={`Eliminar tarjeta ${account.name}`}
                           onClick={() =>
                             openDeleteConfirm(
                               "account",
@@ -774,6 +783,7 @@ export default function CuentasTab() {
                 <Label>Nueva línea de crédito</Label>
                 <Input
                   type="number"
+                  min="0"
                   placeholder="25000"
                   value={creditLimitForm.newLimit}
                   onChange={(e) =>
@@ -837,6 +847,7 @@ export default function CuentasTab() {
                     <Button
                       size="icon"
                       variant="ghost"
+                      aria-label={`Eliminar cambio de línea de ${item.creditAccountName}`}
                       onClick={() =>
                         openDeleteConfirm(
                           "creditLimitChange",
@@ -912,6 +923,7 @@ export default function CuentasTab() {
                 <Label>Monto</Label>
                 <Input
                   type="number"
+                  min="0"
                   placeholder="1500"
                   value={cardPayment.amount}
                   onChange={(e) =>
@@ -975,6 +987,7 @@ export default function CuentasTab() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        aria-label={`Eliminar pago de tarjeta ${payment.creditAccountName}`}
                         onClick={() =>
                           openDeleteConfirm(
                             "cardPayment",
@@ -1040,6 +1053,7 @@ export default function CuentasTab() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          aria-label={`Eliminar inversión ${account.name}`}
                           onClick={() =>
                             openDeleteConfirm(
                               "account",
@@ -1151,6 +1165,7 @@ export default function CuentasTab() {
                   </Label>
                   <Input
                     type="number"
+                    min="0"
                     placeholder={
                       investmentMoveForm.type === "aporte"
                         ? "1000"
@@ -1285,6 +1300,7 @@ export default function CuentasTab() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          aria-label={`Eliminar movimiento de ${item.investmentAccountName}`}
                           onClick={() =>
                             openDeleteConfirm(
                               "investmentMove",

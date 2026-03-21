@@ -180,6 +180,7 @@ export default function PerfilTab() {
                 <Button
                   size="icon"
                   variant="ghost"
+                  aria-label={`Eliminar meta ${goal.name}`}
                   onClick={() =>
                     openDeleteConfirm(
                       "goal",
@@ -207,6 +208,7 @@ export default function PerfilTab() {
               />
               <Input
                 type="number"
+                min="0"
                 placeholder="Monto"
                 value={newGoal.amount}
                 onChange={(e) =>

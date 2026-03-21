@@ -85,6 +85,7 @@ export default function GastosTab() {
               <Label>Monto</Label>
               <Input
                 type="number"
+                min="0"
                 placeholder="550"
                 value={newExpense.amount}
                 onChange={(e) =>
@@ -201,6 +202,7 @@ export default function GastosTab() {
                     <Button
                       size="icon"
                       variant="ghost"
+                      aria-label={`Eliminar gasto ${expense.concept}`}
                       onClick={() =>
                         openDeleteConfirm(
                           "expense",

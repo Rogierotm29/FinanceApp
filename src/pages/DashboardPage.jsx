@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import {
   Wallet,
@@ -35,10 +36,14 @@ import StatCard from "@/components/dashboard/StatCard";
 import SectionCard from "@/components/common/SectionCard";
 import ConfirmDeleteDialog from "@/components/common/ConfirmDeleteDialog";
 
-import CuentasTab from "@/components/tabs/CuentasTab";
-import GastosTab from "@/components/tabs/GastosTab";
-import AnalisisTab from "@/components/tabs/AnalisisTab";
-import PerfilTab from "@/components/tabs/PerfilTab";
+const CuentasTab = lazy(() => import("@/components/tabs/CuentasTab"));
+const GastosTab = lazy(() => import("@/components/tabs/GastosTab"));
+const AnalisisTab = lazy(() => import("@/components/tabs/AnalisisTab"));
+const PerfilTab = lazy(() => import("@/components/tabs/PerfilTab"));
+
+const TabFallback = () => (
+  <div className="p-8 text-center text-sm text-slate-500">Cargando...</div>
+);
 
 import { currency } from "@/lib/formatters";
 
@@ -314,19 +319,27 @@ export default function DashboardPage() {
           </TabsList>
 
           <TabsContent value="cuentas">
-            <CuentasTab />
+            <Suspense fallback={<TabFallback />}>
+              <CuentasTab />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="gastos">
-            <GastosTab />
+            <Suspense fallback={<TabFallback />}>
+              <GastosTab />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="analisis">
-            <AnalisisTab />
+            <Suspense fallback={<TabFallback />}>
+              <AnalisisTab />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="perfil">
-            <PerfilTab />
+            <Suspense fallback={<TabFallback />}>
+              <PerfilTab />
+            </Suspense>
           </TabsContent>
         </Tabs>
 
