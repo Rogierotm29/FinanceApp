@@ -294,7 +294,7 @@ export function AppProvider({ children }) {
       }
 
       if (normalized.profile?.name) {
-        setStep(4);
+        setStep(5);
       }
     } catch {
       const empty = normalizeLoadedData({}, defaultProfile);
@@ -1140,7 +1140,7 @@ export function AppProvider({ children }) {
     setLiquidDepositHistory(demo.liquidDepositHistory);
     setLiquidTransferHistory(demo.liquidTransferHistory);
     setInvestmentMoveHistory(demo.investmentMoveHistory);
-    setStep(4);
+    setStep(5);
     showSuccess("Datos demo cargados.");
   };
 
@@ -1188,7 +1188,7 @@ export function AppProvider({ children }) {
       setLiquidDepositHistory(normalized.liquidDepositHistory);
       setLiquidTransferHistory(normalized.liquidTransferHistory);
       setInvestmentMoveHistory(normalized.investmentMoveHistory);
-      setStep(normalized.profile?.name ? 4 : 1);
+      setStep(normalized.profile?.name ? 5 : 1);
       showSuccess("Respaldo importado.");
     } catch {
       showError("No se pudo importar el archivo.");

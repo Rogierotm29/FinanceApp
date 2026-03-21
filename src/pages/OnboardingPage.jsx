@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   BadgeDollarSign,
   Sparkles,
   Upload,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ import SectionCard from "@/components/common/SectionCard";
 
 import { monthToWeekly, getBudgetPlan } from "@/lib/finance";
 import { currency } from "@/lib/formatters";
+import { hashPin, PIN_STORAGE_KEY } from "@/lib/security";
 
 import { useApp } from "@/context/AppContext";
 
@@ -40,7 +43,32 @@ export default function OnboardingPage() {
     loadDemo,
     importRef,
     handleImportFile,
+    setSavedPin,
+    showError,
   } = useApp();
+
+  const [pinInput, setPinInput] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+
+  const handlePinStep = async () => {
+    // Si no puso nada, saltar sin PIN
+    if (!pinInput) {
+      setStep(4);
+      return;
+    }
+    if (!/^\d{4,6}$/.test(pinInput)) {
+      showError("El PIN debe tener entre 4 y 6 números.");
+      return;
+    }
+    if (pinInput !== pinConfirm) {
+      showError("Los PINs no coinciden.");
+      return;
+    }
+    const hash = await hashPin(pinInput);
+    localStorage.setItem(PIN_STORAGE_KEY, hash);
+    setSavedPin(hash);
+    setStep(4);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -85,13 +113,13 @@ export default function OnboardingPage() {
         <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <Card className="rounded-3xl border-0 shadow-lg">
             <CardHeader>
-              <CardTitle>Paso {step} de 3</CardTitle>
+              <CardTitle>Paso {step} de 4</CardTitle>
               <CardDescription>
                 Completa esta parte para personalizar tus recomendaciones.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <Progress value={(step / 3) * 100} />
+              <Progress value={(step / 4) * 100} />
 
               {step === 1 && (
                 <div className="grid gap-4 md:grid-cols-2">
@@ -209,6 +237,50 @@ export default function OnboardingPage() {
 
               {step === 3 && (
                 <div className="space-y-4">
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <ShieldCheck className="h-8 w-8 shrink-0 text-slate-400" />
+                    <div>
+                      <h3 className="font-semibold">PIN de acceso</h3>
+                      <p className="text-sm text-slate-500">
+                        Opcional. Protege tu app con un PIN de 4 a 6 dígitos.
+                        Si lo omites, podrás configurarlo después en Perfil.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>PIN (4–6 dígitos)</Label>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      placeholder="••••"
+                      maxLength={6}
+                      value={pinInput}
+                      onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ""))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Confirmar PIN</Label>
+                    <Input
+                      type="password"
+                      inputMode="numeric"
+                      placeholder="••••"
+                      maxLength={6}
+                      value={pinConfirm}
+                      onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, ""))}
+                      onKeyDown={(e) => e.key === "Enter" && handlePinStep()}
+                    />
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    Deja ambos campos vacíos para continuar sin PIN.
+                  </p>
+                </div>
+              )}
+
+              {step === 4 && (
+                <div className="space-y-4">
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <h3 className="font-semibold">Resumen inicial</h3>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -265,16 +337,18 @@ export default function OnboardingPage() {
                   Atrás
                 </Button>
 
-                {step < 3 ? (
-                  <Button
-                    onClick={() =>
-                      setStep((prev) => Math.min(prev + 1, 3))
-                    }
-                  >
+                {step < 3 && (
+                  <Button onClick={() => setStep((prev) => prev + 1)}>
                     Siguiente
                   </Button>
-                ) : (
-                  <Button onClick={() => setStep(4)}>Entrar al tablero</Button>
+                )}
+                {step === 3 && (
+                  <Button onClick={handlePinStep}>
+                    {pinInput ? "Guardar PIN y continuar" : "Omitir y continuar"}
+                  </Button>
+                )}
+                {step === 4 && (
+                  <Button onClick={() => setStep(5)}>Entrar al tablero</Button>
                 )}
               </div>
             </CardContent>

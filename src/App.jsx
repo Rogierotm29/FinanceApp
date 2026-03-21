@@ -38,7 +38,7 @@ function AppRouter() {
     );
   }
 
-  if (step < 4) {
+  if (step < 5) {
     return <OnboardingPage />;
   }
 
