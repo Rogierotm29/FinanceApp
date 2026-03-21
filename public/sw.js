@@ -1,12 +1,6 @@
-const CACHE = "appfinanzas-v1";
-const PRECACHE = ["/", "/index.html"];
+const CACHE = "appfinanzas-v2";
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(PRECACHE))
-  );
-  self.skipWaiting();
-});
+self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
@@ -18,19 +12,30 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  // Only cache GET requests to same origin
-  if (e.request.method !== "GET" || !e.request.url.startsWith(self.location.origin)) return;
+  if (e.request.method !== "GET") return;
 
-  e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const network = fetch(e.request).then((res) => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(e.request, clone));
-        }
-        return res;
-      });
-      return cached || network;
-    })
-  );
+  const url = new URL(e.request.url);
+
+  // Never cache HTML — always fetch fresh so deploys se ven inmediato
+  if (e.request.headers.get("accept")?.includes("text/html") || url.pathname === "/") {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    return;
+  }
+
+  // Cache-first para assets con hash (JS, CSS, fonts, images)
+  // Vite genera hashes únicos por build, así que es seguro cachearlos
+  if (url.origin === self.location.origin) {
+    e.respondWith(
+      caches.match(e.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(e.request).then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE).then((cache) => cache.put(e.request, clone));
+          }
+          return res;
+        });
+      })
+    );
+  }
 });
