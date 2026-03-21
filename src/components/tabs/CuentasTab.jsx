@@ -6,6 +6,7 @@ import {
   Receipt,
   Plus,
   Trash2,
+  Pencil,
   ArrowRightLeft,
   Banknote,
   BarChart3 as ChartNoAxesCombined,
@@ -30,6 +31,12 @@ import {
 } from "@/components/ui/select";
 
 import SectionCard from "@/components/common/SectionCard";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import AccountBadge from "@/components/accounts/AccountBadge";
 import InvestmentSummaryCards from "@/components/investments/InvestmentSummaryCards";
 import BillingCycleCard from "@/components/credit/BillingCycleCard";
@@ -79,9 +86,13 @@ export default function CuentasTab() {
     handleInvestmentMove,
     investmentMoveHistory,
     investmentSummary,
+    editingAccount,
+    setEditingAccount,
+    updateAccount,
   } = useApp();
 
   return (
+    <>
     <Tabs defaultValue="resumen-cuentas" className="space-y-4">
       <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-white p-1 shadow-sm">
         <TabsTrigger value="resumen-cuentas">Resumen</TabsTrigger>
@@ -266,10 +277,18 @@ export default function CuentasTab() {
                           {getAccountValueLabel(account.type)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <p className="font-semibold">
                           {currency.format(account.balance)}
                         </p>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label={`Editar cuenta ${account.name}`}
+                          onClick={() => setEditingAccount({ ...account })}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -350,10 +369,18 @@ export default function CuentasTab() {
                         Saldo actual
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <p className="font-semibold">
                         {currency.format(account.balance)}
                       </p>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label={`Editar cuenta ${account.name}`}
+                        onClick={() => setEditingAccount({ ...account })}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         size="icon"
                         variant="ghost"
@@ -1342,5 +1369,134 @@ export default function CuentasTab() {
         </div>
       </TabsContent>
     </Tabs>
+
+    {/* Edit account dialog */}
+
+    <Dialog
+      open={!!editingAccount}
+      onOpenChange={(open) => !open && setEditingAccount(null)}
+    >
+      <DialogContent className="sm:max-w-md rounded-3xl">
+        <DialogHeader>
+          <DialogTitle>Editar cuenta</DialogTitle>
+        </DialogHeader>
+        {editingAccount && (
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Nombre</Label>
+              <Input
+                value={editingAccount.name}
+                onChange={(e) =>
+                  setEditingAccount((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </div>
+            {editingAccount.type === "Credito" && (
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Límite</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={editingAccount.creditLimit || ""}
+                    onChange={(e) =>
+                      setEditingAccount((prev) => ({
+                        ...prev,
+                        creditLimit: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Día corte</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={editingAccount.cutoffDay || ""}
+                    onChange={(e) =>
+                      setEditingAccount((prev) => ({
+                        ...prev,
+                        cutoffDay: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Día pago</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={editingAccount.dueDay || ""}
+                    onChange={(e) =>
+                      setEditingAccount((prev) => ({
+                        ...prev,
+                        dueDay: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            )}
+            {editingAccount.type === "Inversion" && (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Aportación mensual</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={editingAccount.monthlyContribution || ""}
+                    onChange={(e) =>
+                      setEditingAccount((prev) => ({
+                        ...prev,
+                        monthlyContribution: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rendimiento</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={editingAccount.profit || ""}
+                    onChange={(e) =>
+                      setEditingAccount((prev) => ({
+                        ...prev,
+                        profit: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">
+              Para cambiar el saldo usa depósitos, pagos o movimientos de inversión.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditingAccount(null)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() =>
+                  updateAccount(editingAccount.id, {
+                    name: editingAccount.name,
+                    creditLimit: editingAccount.creditLimit,
+                    cutoffDay: editingAccount.cutoffDay,
+                    dueDay: editingAccount.dueDay,
+                    monthlyContribution: editingAccount.monthlyContribution,
+                    profit: editingAccount.profit,
+                  })
+                }
+              >
+                Guardar
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

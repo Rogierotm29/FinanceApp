@@ -3,6 +3,7 @@ import {
   Target,
   PiggyBank,
   CheckCircle2,
+  TrendingUp,
   BarChart3 as ChartNoAxesCombined,
 } from "lucide-react";
 
@@ -18,6 +19,10 @@ import {
   YAxis,
   CartesianGrid,
   Legend,
+  LineChart,
+  Line,
+  Area,
+  AreaChart,
 } from "recharts";
 
 import { Progress } from "@/components/ui/progress";
@@ -38,7 +43,17 @@ export default function AnalisisTab() {
     totals,
     plan,
     healthSnapshot,
+    netWorthHistory,
   } = useApp();
+
+  const MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  const netWorthChartData = netWorthHistory.map((entry) => {
+    const d = new Date(entry.date + "T00:00:00");
+    return {
+      label: `${d.getDate()} ${MONTHS[d.getMonth()]}`,
+      value: entry.value,
+    };
+  });
 
   return (
     <>
@@ -102,6 +117,49 @@ export default function AnalisisTab() {
           </div>
         </SectionCard>
       </div>
+
+      {netWorthChartData.length > 1 && (
+        <SectionCard
+          title="Patrimonio en el tiempo"
+          description="Evolución de liquidez + inversión − deuda (últimos 90 días)."
+          icon={TrendingUp}
+          className="mt-4"
+        >
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={netWorthChartData}>
+                <defs>
+                  <linearGradient id="nwGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11 }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  tick={{ fontSize: 11 }}
+                  width={55}
+                />
+                <Tooltip formatter={(v) => currency.format(Number(v))} />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  fill="url(#nwGradient)"
+                  dot={false}
+                  name="Patrimonio"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </SectionCard>
+      )}
 
       <div className="mt-4 grid gap-4 xl:grid-cols-3">
         <SectionCard

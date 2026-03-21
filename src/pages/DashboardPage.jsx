@@ -70,6 +70,7 @@ export default function DashboardPage() {
     setEditMode,
     handleLockApp,
     exportBackup,
+    exportExpensesCsv,
     importRef,
     handleImportFile,
     resetAll,
@@ -123,7 +124,14 @@ export default function DashboardPage() {
                     className="rounded-2xl"
                     onClick={exportBackup}
                   >
-                    <Download className="mr-2 h-4 w-4" /> Exportar
+                    <Download className="mr-2 h-4 w-4" /> Exportar JSON
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="rounded-2xl"
+                    onClick={exportExpensesCsv}
+                  >
+                    <Download className="mr-2 h-4 w-4" /> Exportar CSV
                   </Button>
                   <Button
                     variant="secondary"

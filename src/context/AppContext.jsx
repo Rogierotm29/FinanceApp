@@ -208,6 +208,18 @@ export function AppProvider({ children }) {
 
   const [editMode, setEditMode] = useState(false);
 
+  // Expense month filter
+  const [expenseMonthFilter, setExpenseMonthFilter] = useState(
+    () => getLocalDateString().slice(0, 7)
+  );
+
+  // Edit expense / account dialogs
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [editingAccount, setEditingAccount] = useState(null);
+
+  // Net worth history
+  const [netWorthHistory, setNetWorthHistory] = useState([]);
+
   const [isAppUnlocked, setIsAppUnlocked] = useState(false);
   const [accessPin, setAccessPin] = useState("");
   const [savedPin, setSavedPin] = useState("");
@@ -277,6 +289,9 @@ export function AppProvider({ children }) {
       setLiquidDepositHistory(normalized.liquidDepositHistory);
       setLiquidTransferHistory(normalized.liquidTransferHistory);
       setInvestmentMoveHistory(normalized.investmentMoveHistory);
+      if (Array.isArray(normalized.netWorthHistory)) {
+        setNetWorthHistory(normalized.netWorthHistory);
+      }
 
       if (normalized.profile?.name) {
         setStep(4);
@@ -308,6 +323,7 @@ export function AppProvider({ children }) {
         liquidDepositHistory,
         liquidTransferHistory,
         investmentMoveHistory,
+        netWorthHistory,
       })
     );
   }, [
@@ -321,6 +337,7 @@ export function AppProvider({ children }) {
     liquidDepositHistory,
     liquidTransferHistory,
     investmentMoveHistory,
+    netWorthHistory,
   ]);
 
   // Auto-clear status message
@@ -329,6 +346,23 @@ export function AppProvider({ children }) {
     const timeout = setTimeout(() => setStatusMessage(""), 2600);
     return () => clearTimeout(timeout);
   }, [statusMessage]);
+
+  // Record daily net worth snapshot
+  useEffect(() => {
+    if (!mounted) return;
+    const today = getLocalDateString();
+    setNetWorthHistory((prev) => {
+      if (prev.length > 0 && prev[prev.length - 1].date === today) {
+        // Update today's value
+        const updated = [...prev];
+        updated[updated.length - 1] = { date: today, value: netWorth };
+        return updated;
+      }
+      const next = [...prev, { date: today, value: netWorth }];
+      return next.slice(-90); // keep last 90 days
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, netWorth]);
 
   // --- Computed values ---
 
@@ -400,6 +434,18 @@ export function AppProvider({ children }) {
       plan.investment,
     ]
   );
+
+  // Filtered expenses by month
+  const filteredExpenses = useMemo(() => {
+    if (expenseMonthFilter === "all") return expenses;
+    return expenses.filter((e) => e.date?.slice(0, 7) === expenseMonthFilter);
+  }, [expenses, expenseMonthFilter]);
+
+  // Available months derived from expenses
+  const expenseMonths = useMemo(() => {
+    const set = new Set(expenses.map((e) => e.date?.slice(0, 7)).filter(Boolean));
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [expenses]);
 
   const expenseByCategory = useMemo(() => {
     const map = new Map();
@@ -905,6 +951,83 @@ export function AppProvider({ children }) {
     showSuccess("Meta eliminada.");
   };
 
+  const updateExpense = (id, changes) => {
+    const old = expenses.find((e) => e.id === id);
+    if (!old) return;
+
+    const newAmount = changes.amount !== undefined ? Number(changes.amount) : Number(old.amount);
+    const newAccountId = changes.accountId !== undefined ? changes.accountId : old.accountId;
+
+    // Revert old account effect
+    if (old.accountId) {
+      setAccounts((prev) =>
+        prev.map((acc) =>
+          acc.id === old.accountId ? revertExpenseFromAccount(acc, Number(old.amount)) : acc
+        )
+      );
+    }
+
+    // Apply new account effect
+    const newAccount = accounts.find((acc) => acc.id === newAccountId);
+    if (newAccount) {
+      setAccounts((prev) =>
+        prev.map((acc) =>
+          acc.id === newAccountId ? applyExpenseToAccount(acc, newAmount) : acc
+        )
+      );
+    }
+
+    setExpenses((prev) =>
+      prev.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              ...changes,
+              amount: newAmount,
+              accountId: newAccountId,
+              accountName: newAccount?.name || (newAccountId ? e.accountName : ""),
+            }
+          : e
+      )
+    );
+    setEditingExpense(null);
+    showSuccess("Gasto actualizado.");
+  };
+
+  const updateAccount = (id, changes) => {
+    setAccounts((prev) =>
+      prev.map((acc) =>
+        acc.id === id ? { ...acc, ...changes } : acc
+      )
+    );
+    setEditingAccount(null);
+    showSuccess("Cuenta actualizada.");
+  };
+
+  const exportExpensesCsv = () => {
+    if (expenses.length === 0) {
+      showError("No hay gastos para exportar.");
+      return;
+    }
+    const header = ["Fecha", "Concepto", "Categoría", "Monto", "Cuenta"];
+    const rows = expenses.map((e) => [
+      e.date,
+      `"${(e.concept || "").replace(/"/g, '""')}"`,
+      e.category || "",
+      e.amount,
+      `"${(e.accountName || "").replace(/"/g, '""')}"`,
+    ]);
+    const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gastos-${getLocalDateString()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showSuccess("CSV exportado.");
+  };
+
   const removeCardPayment = (id) => {
     const paymentToRemove = cardPaymentsHistory.find((payment) => payment.id === id);
     if (!paymentToRemove) return;
@@ -1208,6 +1331,21 @@ export function AppProvider({ children }) {
         statusType,
         importRef,
 
+        // Expense filter
+        expenseMonthFilter,
+        setExpenseMonthFilter,
+        filteredExpenses,
+        expenseMonths,
+
+        // Edit state
+        editingExpense,
+        setEditingExpense,
+        editingAccount,
+        setEditingAccount,
+
+        // Net worth history
+        netWorthHistory,
+
         // Computed values
         totals,
         totalExpenses,
@@ -1243,6 +1381,9 @@ export function AppProvider({ children }) {
         removeAccount,
         removeExpense,
         removeGoal,
+        updateExpense,
+        updateAccount,
+        exportExpensesCsv,
         removeCardPayment,
         removeCreditLimitChange,
         removeLiquidDeposit,

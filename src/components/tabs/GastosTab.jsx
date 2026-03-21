@@ -4,6 +4,8 @@ import {
   Trash2,
   Wallet,
   BadgeDollarSign,
+  Pencil,
+  Filter,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import SectionCard from "@/components/common/SectionCard";
 
@@ -24,6 +32,18 @@ import { currency } from "@/lib/formatters";
 
 import { useApp } from "@/context/AppContext";
 
+const MONTH_LABELS = {
+  "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+  "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+  "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre",
+};
+
+function formatMonth(ym) {
+  if (!ym || ym === "all") return "Todos";
+  const [year, month] = ym.split("-");
+  return `${MONTH_LABELS[month] || month} ${year}`;
+}
+
 export default function GastosTab() {
   const {
     newExpense,
@@ -31,10 +51,17 @@ export default function GastosTab() {
     addExpense,
     accounts,
     expenses,
+    filteredExpenses,
+    expenseMonthFilter,
+    setExpenseMonthFilter,
+    expenseMonths,
     totalExpenses,
     committedThisMonth,
     availableThisMonth,
     openDeleteConfirm,
+    editingExpense,
+    setEditingExpense,
+    updateExpense,
   } = useApp();
 
   return (
@@ -177,13 +204,39 @@ export default function GastosTab() {
           description="Tus movimientos registrados."
           icon={Wallet}
         >
+          {/* Month filter */}
+          <div className="mb-3 flex items-center gap-2">
+            <Filter className="h-4 w-4 text-slate-400" />
+            <Select
+              value={expenseMonthFilter}
+              onValueChange={setExpenseMonthFilter}
+            >
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los meses</SelectItem>
+                {expenseMonths.map((ym) => (
+                  <SelectItem key={ym} value={ym}>
+                    {formatMonth(ym)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-slate-400">
+              {filteredExpenses.length} gasto{filteredExpenses.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+
           <div className="space-y-3">
-            {expenses.length === 0 ? (
+            {filteredExpenses.length === 0 ? (
               <div className="rounded-2xl border border-dashed p-8 text-center text-slate-500">
-                Aún no registras gastos.
+                {expenses.length === 0
+                  ? "Aún no registras gastos."
+                  : "Sin gastos en este mes."}
               </div>
             ) : (
-              expenses.map((expense) => (
+              filteredExpenses.map((expense) => (
                 <div
                   key={expense.id}
                   className="flex items-center justify-between rounded-2xl border p-4"
@@ -197,10 +250,18 @@ export default function GastosTab() {
                         : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <p className="font-semibold">
                       {currency.format(expense.amount)}
                     </p>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Editar gasto ${expense.concept}`}
+                      onClick={() => setEditingExpense({ ...expense })}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -225,6 +286,106 @@ export default function GastosTab() {
           </div>
         </SectionCard>
       </div>
+
+      {/* Edit expense dialog */}
+      <Dialog
+        open={!!editingExpense}
+        onOpenChange={(open) => !open && setEditingExpense(null)}
+      >
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Editar gasto</DialogTitle>
+          </DialogHeader>
+          {editingExpense && (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Concepto</Label>
+                <Input
+                  value={editingExpense.concept}
+                  onChange={(e) =>
+                    setEditingExpense((prev) => ({ ...prev, concept: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Categoría</Label>
+                <Select
+                  value={editingExpense.category}
+                  onValueChange={(value) =>
+                    setEditingExpense((prev) => ({ ...prev, category: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseCategories.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Monto</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={editingExpense.amount}
+                    onChange={(e) =>
+                      setEditingExpense((prev) => ({ ...prev, amount: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fecha</Label>
+                  <Input
+                    type="date"
+                    value={editingExpense.date}
+                    onChange={(e) =>
+                      setEditingExpense((prev) => ({ ...prev, date: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Cuenta</Label>
+                <Select
+                  value={editingExpense.accountId || "sin-cuenta"}
+                  onValueChange={(value) =>
+                    setEditingExpense((prev) => ({
+                      ...prev,
+                      accountId: value === "sin-cuenta" ? "" : value,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sin-cuenta">Sin especificar</SelectItem>
+                    {accounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name} · {account.type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditingExpense(null)}>
+                  Cancelar
+                </Button>
+                <Button onClick={() => updateExpense(editingExpense.id, editingExpense)}>
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
