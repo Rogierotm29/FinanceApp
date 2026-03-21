@@ -1,3 +1,4 @@
+import { useState, useRef } from "react";
 import {
   Wallet,
   Landmark,
@@ -91,9 +92,12 @@ export default function CuentasTab() {
     updateAccount,
   } = useApp();
 
+  const [activeTab, setActiveTab] = useState("resumen-cuentas");
+  const paymentFormRef = useRef(null);
+
   return (
     <>
-    <Tabs defaultValue="resumen-cuentas" className="space-y-4">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-white p-1 shadow-sm">
         <TabsTrigger value="resumen-cuentas">Resumen</TabsTrigger>
         <TabsTrigger value="debito-cuentas">Débito</TabsTrigger>
@@ -785,6 +789,13 @@ export default function CuentasTab() {
                             creditAccountId,
                             amount: String(amount),
                           }));
+                          setActiveTab("credito-cuentas");
+                          setTimeout(() => {
+                            paymentFormRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                          }, 100);
                         }}
                       />
                     </div>
@@ -910,6 +921,7 @@ export default function CuentasTab() {
             </div>
           </SectionCard>
 
+          <div ref={paymentFormRef}>
           <SectionCard
             title="Registrar pago de tarjeta"
             description="Paga tus tarjetas desde una cuenta líquida."
@@ -1052,6 +1064,7 @@ export default function CuentasTab() {
               )}
             </div>
           </SectionCard>
+          </div>
         </div>
       </TabsContent>
 
