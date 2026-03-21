@@ -347,23 +347,6 @@ export function AppProvider({ children }) {
     return () => clearTimeout(timeout);
   }, [statusMessage]);
 
-  // Record daily net worth snapshot
-  useEffect(() => {
-    if (!mounted) return;
-    const today = getLocalDateString();
-    setNetWorthHistory((prev) => {
-      if (prev.length > 0 && prev[prev.length - 1].date === today) {
-        // Update today's value
-        const updated = [...prev];
-        updated[updated.length - 1] = { date: today, value: netWorth };
-        return updated;
-      }
-      const next = [...prev, { date: today, value: netWorth }];
-      return next.slice(-90); // keep last 90 days
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, netWorth]);
-
   // --- Computed values ---
 
   const totals = useMemo(() => getAccountTotals(accounts), [accounts]);
@@ -514,6 +497,20 @@ export function AppProvider({ children }) {
       neto: rendimiento - minusvalia,
     };
   }, [investmentMoveHistory]);
+
+  // Record daily net worth snapshot (placed after netWorth is declared)
+  useEffect(() => {
+    if (!mounted) return;
+    const today = getLocalDateString();
+    setNetWorthHistory((prev) => {
+      if (prev.length > 0 && prev[prev.length - 1].date === today) {
+        const updated = [...prev];
+        updated[updated.length - 1] = { date: today, value: netWorth };
+        return updated;
+      }
+      return [...prev, { date: today, value: netWorth }].slice(-90);
+    });
+  }, [mounted, netWorth]);
 
   // --- Handlers ---
 
