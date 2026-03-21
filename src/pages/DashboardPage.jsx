@@ -46,6 +46,7 @@ const TabFallback = () => (
 );
 
 import { currency } from "@/lib/formatters";
+import { getBillingCycleInfo } from "@/lib/billing";
 
 import { useApp } from "@/context/AppContext";
 
@@ -76,7 +77,13 @@ export default function DashboardPage() {
     setConfirmDelete,
     handleConfirmDelete,
     statusType,
+    groupedAccounts,
+    expenses,
   } = useApp();
+
+  const urgentPayments = groupedAccounts.credito
+    .map((acc) => ({ acc, info: getBillingCycleInfo(acc, expenses) }))
+    .filter(({ info }) => info && info.statementBalance > 0 && info.daysUntilDue <= 5);
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -194,6 +201,22 @@ export default function DashboardPage() {
               : "border-emerald-200 bg-emerald-50 text-emerald-900"
           }`}>
             {statusMessage}
+          </div>
+        ) : null}
+
+        {urgentPayments.length > 0 ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p className="font-medium">Pagos próximos a vencer</p>
+            {urgentPayments.map(({ acc, info }) => (
+              <p key={acc.id} className="mt-1">
+                {acc.name}: {currency.format(info.statementBalance)} —{" "}
+                {info.isOverdue
+                  ? `Vencido hace ${Math.abs(info.daysUntilDue)} días`
+                  : info.daysUntilDue === 0
+                  ? "¡Vence hoy!"
+                  : `Vence el ${info.dueDateFormatted}`}
+              </p>
+            ))}
           </div>
         ) : null}
 

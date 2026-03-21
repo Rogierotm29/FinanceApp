@@ -32,6 +32,7 @@ import {
 import SectionCard from "@/components/common/SectionCard";
 import AccountBadge from "@/components/accounts/AccountBadge";
 import InvestmentSummaryCards from "@/components/investments/InvestmentSummaryCards";
+import BillingCycleCard from "@/components/credit/BillingCycleCard";
 
 import {
   getAccountValueLabel,
@@ -40,6 +41,7 @@ import {
 } from "@/lib/account-ui";
 import { currency, getInvestmentTypeLabel } from "@/lib/formatters";
 import { accountTypes } from "@/lib/constants";
+import { getBillingCycleInfo } from "@/lib/billing";
 
 import { useApp } from "@/context/AppContext";
 
@@ -50,6 +52,7 @@ export default function CuentasTab() {
     addAccount,
     groupedAccounts,
     totals,
+    expenses,
     openDeleteConfirm,
     liquidAccounts,
     liquidDepositForm,
@@ -692,6 +695,8 @@ export default function CuentasTab() {
                     0
                   );
 
+                  const billingInfo = getBillingCycleInfo(account, expenses, new Date());
+
                   return (
                     <div
                       key={account.id}
@@ -742,6 +747,19 @@ export default function CuentasTab() {
                         </div>
                         <Progress value={usage} />
                       </div>
+
+                      <BillingCycleCard
+                        account={account}
+                        billingInfo={billingInfo}
+                        currency={currency}
+                        onPayClick={(creditAccountId, amount) => {
+                          setCardPayment((prev) => ({
+                            ...prev,
+                            creditAccountId,
+                            amount: String(amount),
+                          }));
+                        }}
+                      />
                     </div>
                   );
                 })
