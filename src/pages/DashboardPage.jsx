@@ -75,6 +75,7 @@ export default function DashboardPage() {
     confirmDelete,
     setConfirmDelete,
     handleConfirmDelete,
+    statusType,
   } = useApp();
 
   return (
@@ -187,7 +188,11 @@ export default function DashboardPage() {
         </motion.div>
 
         {statusMessage ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <div className={`rounded-2xl border px-4 py-3 text-sm ${
+            statusType === "error"
+              ? "border-rose-200 bg-rose-50 text-rose-900"
+              : "border-emerald-200 bg-emerald-50 text-emerald-900"
+          }`}>
             {statusMessage}
           </div>
         ) : null}

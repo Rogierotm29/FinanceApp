@@ -56,6 +56,7 @@ export default function GastosTab() {
                   concept: e.target.value,
                 }))
               }
+              onKeyDown={(e) => e.key === "Enter" && addExpense()}
             />
           </div>
 
@@ -94,6 +95,7 @@ export default function GastosTab() {
                     amount: e.target.value,
                   }))
                 }
+                onKeyDown={(e) => e.key === "Enter" && addExpense()}
               />
             </div>
             <div className="space-y-2">

@@ -222,7 +222,11 @@ export function AppProvider({ children }) {
     description: "",
   });
   const [statusMessage, setStatusMessage] = useState("");
+  const [statusType, setStatusType] = useState("success");
   const importRef = useRef(null);
+
+  const showSuccess = (msg) => { setStatusMessage(msg); setStatusType("success"); };
+  const showError = (msg) => { setStatusMessage(msg); setStatusType("error"); };
 
   // Load data on mount
   useEffect(() => {
@@ -277,8 +281,7 @@ export function AppProvider({ children }) {
       if (normalized.profile?.name) {
         setStep(4);
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       const empty = normalizeLoadedData({}, defaultProfile);
       setGoals(empty.goals);
       setCardPaymentsHistory(empty.cardPaymentsHistory);
@@ -494,7 +497,7 @@ export function AppProvider({ children }) {
       profit: "",
     });
 
-    setStatusMessage("Cuenta guardada.");
+    showSuccess("Cuenta guardada.");
   };
 
   const addExpense = () => {
@@ -537,7 +540,7 @@ export function AppProvider({ children }) {
       date: getLocalDateString(),
     });
 
-    setStatusMessage("Gasto registrado.");
+    showSuccess("Gasto registrado.");
   };
 
   const addGoal = () => {
@@ -553,7 +556,7 @@ export function AppProvider({ children }) {
     ]);
 
     setNewGoal({ name: "", amount: "" });
-    setStatusMessage("Meta agregada.");
+    showSuccess("Meta agregada.");
   };
 
   const handleCardPayment = () => {
@@ -575,27 +578,27 @@ export function AppProvider({ children }) {
     );
 
     if (!creditAccount || !sourceAccount) {
-      setStatusMessage("Selecciona cuentas válidas.");
+      showError("Selecciona cuentas válidas.");
       return;
     }
 
     if (cardPayment.creditAccountId === cardPayment.sourceAccountId) {
-      setStatusMessage("No puedes pagar una tarjeta desde la misma cuenta.");
+      showError("No puedes pagar una tarjeta desde la misma cuenta.");
       return;
     }
 
     if (paymentAmount <= 0) {
-      setStatusMessage("El monto debe ser mayor a 0.");
+      showError("El monto debe ser mayor a 0.");
       return;
     }
 
     if (paymentAmount > (Number(creditAccount.balance) || 0)) {
-      setStatusMessage("No puedes pagar más de lo que debes en la tarjeta.");
+      showError("No puedes pagar más de lo que debes en la tarjeta.");
       return;
     }
 
     if (paymentAmount > (Number(sourceAccount.balance) || 0)) {
-      setStatusMessage("No tienes suficiente saldo en la cuenta origen.");
+      showError("No tienes suficiente saldo en la cuenta origen.");
       return;
     }
 
@@ -626,7 +629,7 @@ export function AppProvider({ children }) {
       date: getLocalDateString(),
     });
 
-    setStatusMessage("Pago de tarjeta registrado.");
+    showSuccess("Pago de tarjeta registrado.");
   };
 
   const handleCreditLimitUpdate = () => {
@@ -639,12 +642,12 @@ export function AppProvider({ children }) {
     );
 
     if (!creditAccount) {
-      setStatusMessage("Selecciona una tarjeta válida.");
+      showError("Selecciona una tarjeta válida.");
       return;
     }
 
     if (newLimit <= 0) {
-      setStatusMessage("La línea de crédito debe ser mayor a 0.");
+      showError("La línea de crédito debe ser mayor a 0.");
       return;
     }
 
@@ -672,7 +675,7 @@ export function AppProvider({ children }) {
       date: getLocalDateString(),
     });
 
-    setStatusMessage("Línea de crédito actualizada.");
+    showSuccess("Línea de crédito actualizada.");
   };
 
   const handleLiquidDeposit = () => {
@@ -682,17 +685,17 @@ export function AppProvider({ children }) {
     const account = accounts.find((item) => item.id === liquidDepositForm.accountId);
 
     if (!account) {
-      setStatusMessage("Selecciona una cuenta válida.");
+      showError("Selecciona una cuenta válida.");
       return;
     }
 
     if (!LIQUID_ACCOUNT_TYPES.includes(account.type)) {
-      setStatusMessage("Solo puedes depositar a cuentas líquidas.");
+      showError("Solo puedes depositar a cuentas líquidas.");
       return;
     }
 
     if (depositAmount <= 0) {
-      setStatusMessage("El monto debe ser mayor a 0.");
+      showError("El monto debe ser mayor a 0.");
       return;
     }
 
@@ -721,7 +724,7 @@ export function AppProvider({ children }) {
       date: getLocalDateString(),
     });
 
-    setStatusMessage("Depósito registrado.");
+    showSuccess("Depósito registrado.");
   };
 
   const handleLiquidTransfer = () => {
@@ -742,7 +745,7 @@ export function AppProvider({ children }) {
     );
 
     if (!source || !destination) {
-      setStatusMessage("Selecciona cuentas válidas.");
+      showError("Selecciona cuentas válidas.");
       return;
     }
 
@@ -750,22 +753,22 @@ export function AppProvider({ children }) {
       !LIQUID_ACCOUNT_TYPES.includes(source.type) ||
       !LIQUID_ACCOUNT_TYPES.includes(destination.type)
     ) {
-      setStatusMessage("Solo puedes transferir entre cuentas líquidas.");
+      showError("Solo puedes transferir entre cuentas líquidas.");
       return;
     }
 
     if (source.id === destination.id) {
-      setStatusMessage("La cuenta origen y destino no pueden ser la misma.");
+      showError("La cuenta origen y destino no pueden ser la misma.");
       return;
     }
 
     if (transferAmount <= 0) {
-      setStatusMessage("El monto debe ser mayor a 0.");
+      showError("El monto debe ser mayor a 0.");
       return;
     }
 
     if (transferAmount > (Number(source.balance) || 0)) {
-      setStatusMessage("No tienes suficiente saldo en la cuenta origen.");
+      showError("No tienes suficiente saldo en la cuenta origen.");
       return;
     }
 
@@ -799,7 +802,7 @@ export function AppProvider({ children }) {
       date: getLocalDateString(),
     });
 
-    setStatusMessage("Transferencia registrada.");
+    showSuccess("Transferencia registrada.");
   };
 
   const handleInvestmentMove = () => {
@@ -814,12 +817,12 @@ export function AppProvider({ children }) {
     );
 
     if (!investmentAccount || investmentAccount.type !== "Inversion") {
-      setStatusMessage("Selecciona una inversión válida.");
+      showError("Selecciona una inversión válida.");
       return;
     }
 
     if (amount <= 0) {
-      setStatusMessage("El monto debe ser mayor a 0.");
+      showError("El monto debe ser mayor a 0.");
       return;
     }
 
@@ -827,7 +830,7 @@ export function AppProvider({ children }) {
       (investmentMoveForm.type === "aporte" || investmentMoveForm.type === "retiro") &&
       !investmentMoveForm.liquidAccountId
     ) {
-      setStatusMessage("Selecciona la cuenta líquida relacionada.");
+      showError("Selecciona la cuenta líquida relacionada.");
       return;
     }
 
@@ -835,7 +838,7 @@ export function AppProvider({ children }) {
       (investmentMoveForm.type === "aporte" || investmentMoveForm.type === "retiro") &&
       (!liquidAccount || !LIQUID_ACCOUNT_TYPES.includes(liquidAccount.type))
     ) {
-      setStatusMessage("Selecciona una cuenta líquida válida.");
+      showError("Selecciona una cuenta líquida válida.");
       return;
     }
 
@@ -872,12 +875,12 @@ export function AppProvider({ children }) {
       date: getLocalDateString(),
     });
 
-    setStatusMessage("Movimiento de inversión registrado.");
+    showSuccess("Movimiento de inversión registrado.");
   };
 
   const removeAccount = (id) => {
     setAccounts((prev) => prev.filter((item) => item.id !== id));
-    setStatusMessage("Cuenta eliminada.");
+    showSuccess("Cuenta eliminada.");
   };
 
   const removeExpense = (id) => {
@@ -894,12 +897,12 @@ export function AppProvider({ children }) {
     }
 
     setExpenses((prev) => prev.filter((item) => item.id !== id));
-    setStatusMessage("Gasto eliminado.");
+    showSuccess("Gasto eliminado.");
   };
 
   const removeGoal = (id) => {
     setGoals((prev) => prev.filter((item) => item.id !== id));
-    setStatusMessage("Meta eliminada.");
+    showSuccess("Meta eliminada.");
   };
 
   const removeCardPayment = (id) => {
@@ -912,7 +915,7 @@ export function AppProvider({ children }) {
       prev.filter((payment) => payment.id !== id)
     );
 
-    setStatusMessage("Pago eliminado y saldos revertidos.");
+    showSuccess("Pago eliminado y saldos revertidos.");
   };
 
   const removeCreditLimitChange = (id) => {
@@ -922,7 +925,7 @@ export function AppProvider({ children }) {
     setAccounts((prev) => revertCreditLimitUpdate(prev, limitChange));
 
     setCreditLimitHistory((prev) => prev.filter((item) => item.id !== id));
-    setStatusMessage("Cambio de línea eliminado.");
+    showSuccess("Cambio de línea eliminado.");
   };
 
   const removeLiquidDeposit = (id) => {
@@ -932,7 +935,7 @@ export function AppProvider({ children }) {
     setAccounts((prev) => revertLiquidDepositInAccounts(prev, deposit));
 
     setLiquidDepositHistory((prev) => prev.filter((item) => item.id !== id));
-    setStatusMessage("Depósito eliminado y saldo revertido.");
+    showSuccess("Depósito eliminado y saldo revertido.");
   };
 
   const removeLiquidTransfer = (id) => {
@@ -942,7 +945,7 @@ export function AppProvider({ children }) {
     setAccounts((prev) => revertLiquidTransferInAccounts(prev, transfer));
 
     setLiquidTransferHistory((prev) => prev.filter((item) => item.id !== id));
-    setStatusMessage("Transferencia eliminada y saldos revertidos.");
+    showSuccess("Transferencia eliminada y saldos revertidos.");
   };
 
   const removeInvestmentMove = (id) => {
@@ -952,7 +955,7 @@ export function AppProvider({ children }) {
     setAccounts((prev) => revertInvestmentMoveInAccounts(prev, move));
 
     setInvestmentMoveHistory((prev) => prev.filter((item) => item.id !== id));
-    setStatusMessage("Movimiento de inversión eliminado y saldos revertidos.");
+    showSuccess("Movimiento de inversión eliminado y saldos revertidos.");
   };
 
   const openDeleteConfirm = (type, id, title, description) => {
@@ -1003,7 +1006,7 @@ export function AppProvider({ children }) {
     setInvestmentMoveHistory([]);
     setStep(1);
     localStorage.removeItem(STORAGE_KEY);
-    setStatusMessage("Datos reiniciados.");
+    showSuccess("Datos reiniciados.");
   };
 
   const loadDemo = () => {
@@ -1018,7 +1021,7 @@ export function AppProvider({ children }) {
     setLiquidTransferHistory(demo.liquidTransferHistory);
     setInvestmentMoveHistory(demo.investmentMoveHistory);
     setStep(4);
-    setStatusMessage("Datos demo cargados.");
+    showSuccess("Datos demo cargados.");
   };
 
   const exportBackup = () => {
@@ -1044,7 +1047,7 @@ export function AppProvider({ children }) {
     a.download = `money-manager-backup-${getLocalDateString()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    setStatusMessage("Respaldo exportado.");
+    showSuccess("Respaldo exportado.");
   };
 
   const handleImportFile = async (event) => {
@@ -1066,10 +1069,9 @@ export function AppProvider({ children }) {
       setLiquidTransferHistory(normalized.liquidTransferHistory);
       setInvestmentMoveHistory(normalized.investmentMoveHistory);
       setStep(normalized.profile?.name ? 4 : 1);
-      setStatusMessage("Respaldo importado.");
-    } catch (error) {
-      console.error(error);
-      setStatusMessage("No se pudo importar el archivo.");
+      showSuccess("Respaldo importado.");
+    } catch {
+      showError("No se pudo importar el archivo.");
     } finally {
       if (event.target) event.target.value = "";
     }
@@ -1079,7 +1081,7 @@ export function AppProvider({ children }) {
     const cleanPin = accessPin.trim();
 
     if (!/^\d{4,6}$/.test(cleanPin)) {
-      setStatusMessage("El PIN debe tener entre 4 y 6 números.");
+      showError("El PIN debe tener entre 4 y 6 números.");
       return;
     }
 
@@ -1090,7 +1092,7 @@ export function AppProvider({ children }) {
     setSavedPin(hash);
     setIsAppUnlocked(true);
     setAccessPin("");
-    setStatusMessage("PIN guardado correctamente.");
+    showSuccess("PIN guardado correctamente.");
   };
 
   const handleUnlockApp = async () => {
@@ -1103,7 +1105,7 @@ export function AppProvider({ children }) {
 
     // Check lockout
     if (lockoutUntil && Date.now() < lockoutUntil) {
-      setStatusMessage("App bloqueada temporalmente. Intenta más tarde.");
+      showError("App bloqueada temporalmente. Intenta más tarde.");
       return;
     }
 
@@ -1117,9 +1119,9 @@ export function AppProvider({ children }) {
         const lockUntil = Date.now() + LOCKOUT_DURATION_MS;
         setLockoutUntil(lockUntil);
         setPinAttempts(0);
-        setStatusMessage("Demasiados intentos. App bloqueada por 5 minutos.");
+        showError("Demasiados intentos. App bloqueada por 5 minutos.");
       } else {
-        setStatusMessage("PIN incorrecto.");
+        showError("PIN incorrecto.");
       }
       return;
     }
@@ -1128,13 +1130,13 @@ export function AppProvider({ children }) {
     setAccessPin("");
     setPinAttempts(0);
     setLockoutUntil(null);
-    setStatusMessage("App desbloqueada.");
+    showSuccess("App desbloqueada.");
   };
 
   const handleLockApp = () => {
     setIsAppUnlocked(false);
     setAccessPin("");
-    setStatusMessage("App bloqueada.");
+    showSuccess("App bloqueada.");
   };
 
   const handleRemovePin = () => {
@@ -1143,7 +1145,7 @@ export function AppProvider({ children }) {
     setSavedPin("");
     setAccessPin("");
     setIsAppUnlocked(true);
-    setStatusMessage("PIN eliminado.");
+    showSuccess("PIN eliminado.");
   };
 
   return (
@@ -1203,6 +1205,7 @@ export function AppProvider({ children }) {
         setConfirmDelete,
         statusMessage,
         setStatusMessage,
+        statusType,
         importRef,
 
         // Computed values
